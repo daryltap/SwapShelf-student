@@ -1,8 +1,5 @@
 import os
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
-
-from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,40 +45,16 @@ TEMPLATES = [
     }
 ]
 
-database_url = os.environ.get("DATABASE_URL")
-if database_url:
-    parsed_database_url = urlparse(database_url)
-    if parsed_database_url.scheme not in {"postgres", "postgresql"}:
-        raise ImproperlyConfigured("DATABASE_URL must use the postgres or postgresql scheme.")
-    if not parsed_database_url.hostname or not parsed_database_url.path.strip("/"):
-        raise ImproperlyConfigured("DATABASE_URL must include a PostgreSQL host and database name.")
+database_path = os.environ.get("DATABASE_PATH")
+if not database_path and os.environ.get("VERCEL"):
+    database_path = "/tmp/swapshelf.db"
 
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": unquote(parsed_database_url.path.lstrip("/")),
-            "USER": unquote(parsed_database_url.username or ""),
-            "PASSWORD": unquote(parsed_database_url.password or ""),
-            "HOST": parsed_database_url.hostname,
-            "PORT": parsed_database_url.port or "",
-            "OPTIONS": {
-                key: values[-1]
-                for key, values in parse_qs(parsed_database_url.query).items()
-            },
-            "CONN_MAX_AGE": 0,
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": database_path or BASE_DIR / "data" / "swapshelf.db",
     }
-elif os.environ.get("VERCEL"):
-    raise ImproperlyConfigured(
-        "DATABASE_URL is required on Vercel. Configure a persistent PostgreSQL database."
-    )
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": os.environ.get("DATABASE_PATH", BASE_DIR / "data" / "swapshelf.db"),
-        }
-    }
+}
 
 AUTH_PASSWORD_VALIDATORS = []
 LANGUAGE_CODE = "en-us"
